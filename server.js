@@ -109,7 +109,6 @@ app.use("/api/invoice", invoiceRoute);
 app.use("/api/contact", contactRoute);
 app.use("/api/auth", firebaseAuthRoute);
 
-
 /* ============================================================
    GLOBAL ERROR HANDLER
 ============================================================ */
@@ -140,8 +139,8 @@ mongoose
   .then(async () => {
     console.log("✅ MongoDB connected");
 
-    // Only verify SMTP in development so logs don't spam production
-    if (process.env.NODE_ENV !== "production") {
+    // Only verify SMTP in development or when SMTP_DEBUG=true
+    if (process.env.NODE_ENV !== "production" || process.env.SMTP_DEBUG === "true") {
       console.log("🔍 Verifying SMTP transporter...");
       await verifyTransporter(); // prints success or error
     }
