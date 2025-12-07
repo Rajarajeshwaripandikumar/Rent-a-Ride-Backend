@@ -2,7 +2,7 @@
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
-import Booking from "../../models/bookingModel.js";
+import Booking from "../../models/BookingModel.js";
 
 /* ───────────── Helpers ───────────── */
 
