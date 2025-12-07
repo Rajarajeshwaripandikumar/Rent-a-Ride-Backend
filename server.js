@@ -25,7 +25,6 @@ import invoiceRoute from "./routes/invoiceRoute.js";
 import contactRoute from "./routes/contactRoute.js";
 import firebaseAuthRoute from "./routes/firebaseAuthRoute.js";
 
-
 const app = express();
 
 /* ============================================================
@@ -63,15 +62,22 @@ app.use(helmet());
    CORS CONFIG
 ============================================================ */
 const allowedOrigins = [
- "https://rent-a-ride-teju.netlify.app",
+  "https://rent-a-ride-teju.netlify.app",
   "http://localhost:5173",
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Allow Postman, mobile apps
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      console.log("[CORS] Incoming origin:", origin || "(none)");
+
+      if (!origin) return callback(null, true); // Allow Postman, mobile apps, server-to-server
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.error("[CORS] Blocked origin:", origin);
       return callback(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "PUT", "POST", "PATCH", "DELETE"],
