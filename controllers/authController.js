@@ -244,7 +244,7 @@ export const refreshToken = async (req, res, next) => {
   }
 };
 
-// ================== GOOGLE AUTH (NON-FIREBASE) ==================
+// ================== GOOGLE AUTH ==================
 export const google = async (req, res, next) => {
   try {
     const { email, name, photo } = req.body;
@@ -418,4 +418,11 @@ export const resetPassword = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+// ================== FIREBASE AUTH (DISABLED PLACEHOLDER) ==================
+export const firebaseAuth = async (req, res, next) => {
+  // Route kept so your frontend doesn't break,
+  // but Firebase Admin + JSON are removed for Render.
+  return next(errorHandler(503, "Firebase authentication is disabled"));
 };
