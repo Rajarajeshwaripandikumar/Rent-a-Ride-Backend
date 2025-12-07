@@ -2,8 +2,7 @@
 import nodemailer from "nodemailer";
 
 /**
- * Creates a reusable SMTP transporter using Gmail (or any SMTP server)
- * based on environment variables.
+ * Email / SMTP utility
  *
  * REQUIRED ENV:
  *  - SMTP_HOST
@@ -11,7 +10,15 @@ import nodemailer from "nodemailer";
  *  - SMTP_USER
  *  - SMTP_PASS
  *  - EMAIL_FROM
+ *
+ * OPTIONAL:
+ *  - SMTP_SECURE   ("true" to use port 465, else false/587)
+ *  - SMTP_DEBUG    ("true" to enable verbose nodemailer logging)
+ *  - NODE_ENV      ("production" to hide most logs)
  */
+
+const isProd = process.env.NODE_ENV === "production";
+const smtpDebug = process.env.SMTP_DEBUG === "true";
 
 export function createTransporter() {
   if (
@@ -19,14 +26,17 @@ export function createTransporter() {
     !process.env.SMTP_USER ||
     !process.env.SMTP_PASS
   ) {
-    console.warn(
-      "⚠️ SMTP NOT CONFIGURED: Missing SMTP_HOST / SMTP_USER / SMTP_PASS"
-    );
+    // Only warn in non-production or when explicitly debugging
+    if (!isProd || smtpDebug) {
+      console.warn(
+        "⚠️ SMTP NOT CONFIGURED: Missing SMTP_HOST / SMTP_USER / SMTP_PASS"
+      );
+    }
     return null; // Fallback: controller logs link instead
   }
 
   try {
-    const transporter = nodemailer.createTransport({
+    const baseConfig = {
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || "587", 10),
       secure: process.env.SMTP_SECURE === "true", // true only for port 465
@@ -34,7 +44,18 @@ export function createTransporter() {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-    });
+    };
+
+    // Enable nodemailer internal logging ONLY if SMTP_DEBUG=true
+    const transporter = nodemailer.createTransport(
+      smtpDebug
+        ? {
+            ...baseConfig,
+            logger: true,
+            debug: true,
+          }
+        : baseConfig
+    );
 
     return transporter;
   } catch (err) {
@@ -53,7 +74,9 @@ export function createTransporter() {
 export async function sendResetEmail(to, resetUrl, opts = {}) {
   const transporter = createTransporter();
   if (!transporter) {
-    console.warn("⚠️ Cannot send email: transporter not available");
+    if (!isProd || smtpDebug) {
+      console.warn("⚠️ Cannot send email: transporter not available");
+    }
     return false;
   }
 
@@ -96,7 +119,9 @@ export async function sendResetEmail(to, resetUrl, opts = {}) {
       html,
     });
 
-    console.log("📩 Email sent:", info.messageId);
+    if (!isProd || smtpDebug) {
+      console.log("📩 Email sent:", info.messageId);
+    }
     return true;
   } catch (err) {
     console.error("❌ Error sending reset email:", err);
@@ -106,18 +131,22 @@ export async function sendResetEmail(to, resetUrl, opts = {}) {
 
 /**
  * DEBUG helper — verifies SMTP connectivity/auth.
- * Called once from server startup in development.
+ * You can call this from server startup ONLY when needed.
  */
 export async function verifyTransporter() {
   const transporter = createTransporter();
   if (!transporter) {
-    console.warn("⚠️ verifyTransporter: transporter not available");
+    if (!isProd || smtpDebug) {
+      console.warn("⚠️ verifyTransporter: transporter not available");
+    }
     return false;
   }
 
   try {
     await transporter.verify(); // checks SMTP connection + auth
-    console.log("📬 SMTP verified and ready to send emails");
+    if (!isProd || smtpDebug) {
+      console.log("📬 SMTP verified and ready to send emails");
+    }
     return true;
   } catch (err) {
     console.error("❌ SMTP verify failed:", err.message || err);
