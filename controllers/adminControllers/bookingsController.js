@@ -1,5 +1,5 @@
 // backend/controllers/adminControllers/bookingsController.js
-import Booking from "../../models/bookingModel.js";
+import Booking from "../../models/BookingModel.js";
 import { errorHandler } from "../../utils/error.js";
 
 /**
