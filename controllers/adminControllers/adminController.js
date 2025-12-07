@@ -1,6 +1,6 @@
 // backend/controllers/adminControllers/adminController.js
 import User from "../../models/userModel.js";
-import Booking from "../../models/bookingModel.js";
+import Booking from "../../models/BookingModel.js";
 import Vehicle from "../../models/vehicleModel.js";
 import { errorHandler } from "../../utils/error.js";
 
