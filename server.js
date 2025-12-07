@@ -63,7 +63,7 @@ app.use(helmet());
    CORS CONFIG
 ============================================================ */
 const allowedOrigins = [
- " https://rent-a-ride-teju.netlify.app",
+ "https://rent-a-ride-teju.netlify.app",
   "http://localhost:5173",
 ];
 
