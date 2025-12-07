@@ -63,7 +63,7 @@ app.use(helmet());
    CORS CONFIG
 ============================================================ */
 const allowedOrigins = [
-  "https://rent-a-ride-two.vercel.app",
+  "https://your-netlify-site.netlify.app",
   "http://localhost:5173",
 ];
 
