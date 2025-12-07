@@ -9,32 +9,6 @@ import User from "../models/userModel.js";
 import { errorHandler } from "../utils/error.js";
 import { sendResetEmail } from "../utils/email.js";
 
-// ------------------ FIREBASE ADMIN JSON FIX (Node 22 Compatible) ------------------
-import admin from "firebase-admin";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load Firebase JSON manually
-const serviceAccount = JSON.parse(
-  fs.readFileSync(
-    path.join(__dirname, "../firebase-service-account.json"),
-    "utf8"
-  )
-);
-
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
-
-// ------------------------------------------------------------------------------
-
 /**
  * ENV expected:
  * ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET
@@ -270,7 +244,7 @@ export const refreshToken = async (req, res, next) => {
   }
 };
 
-// ================== GOOGLE AUTH ==================
+// ================== GOOGLE AUTH (NON-FIREBASE) ==================
 export const google = async (req, res, next) => {
   try {
     const { email, name, photo } = req.body;
@@ -443,73 +417,5 @@ export const resetPassword = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
-  }
-};
-
-// ================== FIREBASE AUTH ==================
-export const firebaseAuth = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization || "";
-    const idToken = authHeader.startsWith("Bearer ")
-      ? authHeader.split(" ")[1]
-      : null;
-
-    if (!idToken)
-      return next(errorHandler(400, "Missing Firebase ID token"));
-
-    const decoded = await admin.auth().verifyIdToken(idToken);
-
-    const firebaseEmail = decoded.email;
-    const firebaseName = decoded.name;
-    const firebaseAvatar = decoded.picture;
-
-    if (!firebaseEmail)
-      return next(errorHandler(400, "Firebase token missing email"));
-
-    let user = await User.findOne({ email: firebaseEmail });
-
-    if (user && !user.isUser)
-      return next(errorHandler(409, "Email already used as non-user account"));
-
-    if (!user) {
-      const randomPassword =
-        Math.random().toString(36).slice(-8) +
-        Math.random().toString(36).slice(-8);
-
-      const hashedPassword = bcryptjs.hashSync(randomPassword, 10);
-
-      user = await User.create({
-        email: firebaseEmail,
-        password: hashedPassword,
-        profilePicture: firebaseAvatar,
-        role: "user",
-        isUser: true,
-        username:
-          (firebaseName || firebaseEmail.split("@")[0])
-            .replace(/\s+/g, "")
-            .toLowerCase() +
-          Math.random().toString(36).slice(-4),
-      });
-    }
-
-    const accessToken = makeAccessToken(user);
-    const refreshToken = makeRefreshToken(user);
-
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    const { password, refreshToken: _, ...doc } = user._doc;
-
-    res.cookie("access_token", accessToken, accessCookieOptions);
-
-    return res.status(200).json({
-      success: true,
-      accesstoken: accessToken,
-      refreshToken,
-      user: doc,
-    });
-  } catch (err) {
-    console.error("❌ Firebase auth error:", err);
-    next(errorHandler(500, "Firebase authentication failed"));
   }
 };
