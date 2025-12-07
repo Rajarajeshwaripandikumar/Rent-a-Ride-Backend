@@ -1,7 +1,7 @@
 // backend/controllers/vendorControllers/vendorStatsController.js
 
 import Vehicle from "../../models/vehicleModel.js";
-import Booking from "../../models/bookingModel.js";
+import Booking from "../../models/BookingModel.js";
 import { errorHandler } from "../../utils/error.js";
 
 export const vendorStats = async (req, res, next) => {
