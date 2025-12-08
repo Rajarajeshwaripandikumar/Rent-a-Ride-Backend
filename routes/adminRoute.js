@@ -190,8 +190,8 @@ router.get(
       const data = vendors.map((v) => ({
         Username: v.username || "",
         Email: v.email || "",
-        // ✅ make sure it's a string, so it appears properly
-        Phone: v.phoneNumber ? String(v.phoneNumber) : "",
+        // ✅ Excel-safe phone so it doesn't show 7.81E+09
+        Phone: v.phoneNumber ? `="${v.phoneNumber}"` : "",
         IsVendor: v.isVendor ? "Yes" : "No",
         // ✅ send as ISO string (your frontend can reformat if needed)
         CreatedAt: v.createdAt ? v.createdAt.toISOString() : "",
@@ -384,9 +384,9 @@ router.get(
         BookingId: b._id,
         CustomerName: b.userId?.username || "",
         CustomerEmail: b.userId?.email || "",
-        // ✅ make sure phone is string
+        // ✅ Excel-safe customer phone
         CustomerPhone: b.userId?.phoneNumber
-          ? String(b.userId.phoneNumber)
+          ? `="${b.userId.phoneNumber}"`
           : "",
         VehicleName:
           b.vehicleId?.name ||
