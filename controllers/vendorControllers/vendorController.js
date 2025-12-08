@@ -1,4 +1,3 @@
-// backend/controllers/vendor/vendorAuthController.js
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -12,21 +11,23 @@ const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || "15m";
 
 if (!ACCESS_TOKEN_SECRET) {
   console.error("❌ ACCESS_TOKEN_SECRET missing (vendorAuthController)");
+  process.exit(1);  // Fail early if secret is missing
 }
 
-// Create vendor JWT
-const makeVendorToken = (user) =>
-  Jwt.sign(
+const generateToken = (user, role) => {
+  return Jwt.sign(
     {
       id: user._id,
-      role: "vendor",
-      isVendor: true, // backward compatibility
+      role: role,
+      isVendor: true,  // backward compatibility
     },
     ACCESS_TOKEN_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
   );
+};
 
-// Cookie options (consistent everywhere)
+const makeVendorToken = (user) => generateToken(user, "vendor");
+
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -34,9 +35,7 @@ const cookieOptions = {
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
 };
 
-// ==========================
-// VENDOR SIGNUP
-// ==========================
+// Vendor Signup
 export const vendorSignup = async (req, res, next) => {
   try {
     const { username, email, password, phoneNumber, adress } = req.body;
@@ -48,6 +47,10 @@ export const vendorSignup = async (req, res, next) => {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(errorHandler(409, "Email already registered"));
+    }
+
+    if (password.length < 6) {
+      return next(errorHandler(400, "Password must be at least 6 characters"));
     }
 
     const hashedPassword = bcryptjs.hashSync(password, 10);
@@ -79,9 +82,7 @@ export const vendorSignup = async (req, res, next) => {
   }
 };
 
-// ==========================
-// VENDOR SIGNIN
-// ==========================
+// Vendor Signin
 export const vendorSignin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -96,11 +97,10 @@ export const vendorSignin = async (req, res, next) => {
 
     if (!vendor) return next(errorHandler(404, "Vendor not found"));
 
-    const isValid = bcryptjs.compareSync(password, vendor.password);
+    const isValid = await bcryptjs.compare(password, vendor.password);
     if (!isValid) return next(errorHandler(401, "Wrong credentials"));
 
     const token = makeVendorToken(vendor);
-
     const { password: _, ...vendorData } = vendor._doc;
 
     return res
@@ -117,17 +117,11 @@ export const vendorSignin = async (req, res, next) => {
   }
 };
 
-// ==========================
-// VENDOR SIGNOUT
-// ==========================
+// Vendor Signout
 export const vendorSignout = async (req, res, next) => {
   try {
     return res
-      .clearCookie("access_token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      })
+      .clearCookie("access_token", cookieOptions)
       .status(200)
       .json({ success: true, message: "Vendor signed out" });
   } catch (error) {
@@ -135,17 +129,12 @@ export const vendorSignout = async (req, res, next) => {
   }
 };
 
-// ==========================
-// VENDOR GOOGLE LOGIN/SIGNUP
-// ==========================
+// Vendor Google Login/Signup
 export const vendorGoogle = async (req, res, next) => {
   try {
     const { email, name, photo } = req.body;
 
-    let vendor = await User.findOne({
-      email,
-      role: "vendor",
-    });
+    let vendor = await User.findOne({ email, role: "vendor" });
 
     if (vendor) {
       const token = makeVendorToken(vendor);
@@ -162,16 +151,11 @@ export const vendorGoogle = async (req, res, next) => {
     }
 
     // Create a new vendor
-    const randomPassword =
-      Math.random().toString(36).slice(-8) +
-      Math.random().toString(36).slice(-8);
-
+    const randomPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = bcryptjs.hashSync(randomPassword, 10);
 
     const newVendor = await User.create({
-      username:
-        name.replace(/\s+/g, "").toLowerCase() +
-        Math.random().toString(36).slice(-4),
+      username: name.replace(/\s+/g, "").toLowerCase() + Math.random().toString(36).slice(-4),
       email,
       password: hashedPassword,
       profilePicture: photo,
