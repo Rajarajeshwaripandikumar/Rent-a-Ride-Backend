@@ -1,4 +1,3 @@
-// backend/utils/verifyVendor.js
 import jwt from "jsonwebtoken";
 import { errorHandler } from "./error.js";
 import User from "../models/userModel.js";
@@ -33,10 +32,7 @@ export const verifyVendor = async (req, res, next) => {
     jwt.verify(token, ACCESS_TOKEN_SECRET, async (err, decoded) => {
       if (err) {
         if (err.name === "TokenExpiredError") {
-          console.warn(
-            "verifyVendor: token expired:",
-            token?.slice?.(0, 20) ?? "<token>"
-          );
+          console.warn("verifyVendor: token expired:", token?.slice(0, 20));
           return next(errorHandler(401, "TokenExpired"));
         }
 
