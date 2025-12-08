@@ -15,10 +15,10 @@ router.post("/vendorsignin", signIn);
 router.post("/vendorgoogle", vendorGoogle);
 
 // Protected Vendor Routes
-router.get("/vendorsignout", verifyVendor, vendorSignout);
+router.post("/vendorsignout", verifyVendor, vendorSignout);  // Using POST for signout
 
 router.post("/vendorAddVehicle", verifyVendor, multerMultipleUploads, vendorAddVehicle);
-router.post("/showVendorVehilces", verifyVendor, showVendorVehicles);
+router.post("/showVendorVehicles", verifyVendor, showVendorVehicles);  // Fixed typo in route
 router.put("/vendorEditVehicles/:id", verifyVendor, vendorEditVehicles);
 router.delete("/vendorDeleteVehicles/:id", verifyVendor, vendorDeleteVehicles);
 
