@@ -1,7 +1,7 @@
 // backend/utils/verifyVendor.js
 import jwt from "jsonwebtoken";
 import { errorHandler } from "./error.js";
-import User from "../models/userModel.js"; // optional, if you want DB lookup
+import User from "../models/userModel.js";
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
@@ -14,20 +14,22 @@ export const verifyVendor = async (req, res, next) => {
       );
     }
 
-    // 1) Try cookie first (same pattern as verifyToken / verifyUser)
+    // 1) Get token – ✅ Prefer Authorization header over cookie
     const authHeader = req.headers.authorization || req.headers.Authorization;
     const headerToken = authHeader?.startsWith("Bearer ")
       ? authHeader.split(" ")[1]
       : null;
 
     const cookieToken = req.cookies?.access_token || req.cookies?.accessToken;
-    const token = cookieToken || headerToken;
+
+    // ✅ HEADER wins, then cookie
+    const token = headerToken || cookieToken;
 
     if (!token) {
       return next(errorHandler(401, "Vendor not authenticated"));
     }
 
-    // 2) Verify token and handle expiry specially
+    // 2) Verify token and handle expiry
     jwt.verify(token, ACCESS_TOKEN_SECRET, async (err, decoded) => {
       if (err) {
         if (err.name === "TokenExpiredError") {
@@ -35,7 +37,6 @@ export const verifyVendor = async (req, res, next) => {
             "verifyVendor: token expired:",
             token?.slice?.(0, 20) ?? "<token>"
           );
-          // IMPORTANT: same message as other middlewares
           return next(errorHandler(401, "TokenExpired"));
         }
 
@@ -43,22 +44,30 @@ export const verifyVendor = async (req, res, next) => {
         return next(errorHandler(403, "Invalid vendor token"));
       }
 
-      if (!decoded?.id) {
+      if (!decoded?.id && !decoded?._id && !decoded?.userId) {
         return next(errorHandler(400, "Invalid vendor payload in token"));
       }
 
-      // 3) OPTIONAL: load full vendor doc from DB
-      const vendor = await User.findById(decoded.id).select("-password");
+      const userId = decoded.id || decoded._id || decoded.userId;
+
+      // 3) Load vendor from DB (optional but you already do this)
+      const vendor = await User.findById(userId).select("-password");
       if (!vendor) {
         return next(errorHandler(404, "Vendor not found"));
       }
 
-      if (vendor.role !== "vendor") {
+      // 4) Check vendor role/flag
+      const isVendorFromToken =
+        decoded.role === "vendor" || decoded.isVendor === true;
+      const isVendorFromDb =
+        vendor.role === "vendor" || vendor.isVendor === true;
+
+      if (!isVendorFromToken && !isVendorFromDb) {
         return next(errorHandler(403, "Access denied: vendors only"));
       }
 
-      // 4) Attach to req for controllers
-      req.user = vendor;      // full doc
+      // 5) Attach to req for controllers
+      req.user = vendor; // full user doc
       req.userId = vendor._id;
 
       return next();
