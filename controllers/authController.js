@@ -23,36 +23,29 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || "15m";
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d";
 
-if (!ACCESS_TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
-  console.error(
-    "ERROR: ACCESS_TOKEN_SECRET or REFRESH_TOKEN_SECRET not found in .env"
-  );
-}
-
-// Common cookie options for access token
+// cookie settings – used for access_token cookie
 const accessCookieOptions = {
   httpOnly: true,
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   secure: process.env.NODE_ENV === "production",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // cookie lifetime; JWT still obeys ACCESS_TOKEN_EXPIRES_IN
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
-// Create JWT tokens
+// JWT creators
 const makeAccessToken = (user) =>
-  Jwt.sign(
-    { id: user._id, role: user.role },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
-  );
+  Jwt.sign({ id: user._id, role: user.role }, ACCESS_TOKEN_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+  });
 
 const makeRefreshToken = (user) =>
-  Jwt.sign(
-    { id: user._id, role: user.role },
-    REFRESH_TOKEN_SECRET,
-    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
-  );
+  Jwt.sign({ id: user._id, role: user.role }, REFRESH_TOKEN_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+  });
 
-// ================== SIGN UP (USER) ==================
+/* ============================================================
+   SIGNUP — USER / VENDOR / ADMIN
+============================================================ */
+
 export const signUp = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
@@ -63,20 +56,20 @@ export const signUp = async (req, res, next) => {
     const existing = await User.findOne({ email });
     if (existing) return next(errorHandler(409, "Email already registered"));
 
-    const hashedPassword = bcryptjs.hashSync(password, 10);
+    const hashed = bcryptjs.hashSync(password, 10);
 
     const newUser = new User({
       username,
       email,
-      password: hashedPassword,
+      password: hashed,
       role: "user",
+      isUser: true,
     });
 
     await newUser.save();
 
     res.status(200).json({
       success: true,
-      succes: true,
       message: "User created successfully",
     });
   } catch (err) {
@@ -84,26 +77,22 @@ export const signUp = async (req, res, next) => {
   }
 };
 
-// ================== SIGN UP (VENDOR) ==================
 export const signUpVendor = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
+    if (!username || !email || !password)
       return next(errorHandler(400, "All fields are required"));
-    }
 
     const existing = await User.findOne({ email });
-    if (existing) {
-      return next(errorHandler(409, "Email already registered"));
-    }
+    if (existing) return next(errorHandler(409, "Email already registered"));
 
-    const hashedPassword = bcryptjs.hashSync(password, 10);
+    const hashed = bcryptjs.hashSync(password, 10);
 
     const newVendor = new User({
       username,
       email,
-      password: hashedPassword,
+      password: hashed,
       role: "vendor",
       isVendor: true,
     });
@@ -112,7 +101,6 @@ export const signUpVendor = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      succes: true,
       message: "Vendor created successfully",
     });
   } catch (err) {
@@ -120,26 +108,22 @@ export const signUpVendor = async (req, res, next) => {
   }
 };
 
-// ================== SIGN UP (ADMIN) ==================
 export const signUpAdmin = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
+    if (!username || !email || !password)
       return next(errorHandler(400, "All fields are required"));
-    }
 
     const existing = await User.findOne({ email });
-    if (existing) {
-      return next(errorHandler(409, "Email already registered"));
-    }
+    if (existing) return next(errorHandler(409, "Email already registered"));
 
-    const hashedPassword = bcryptjs.hashSync(password, 10);
+    const hashed = bcryptjs.hashSync(password, 10);
 
     const newAdmin = new User({
       username,
       email,
-      password: hashedPassword,
+      password: hashed,
       role: "admin",
       isAdmin: true,
     });
@@ -148,7 +132,6 @@ export const signUpAdmin = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      succes: true,
       message: "Admin created successfully",
     });
   } catch (err) {
@@ -156,7 +139,10 @@ export const signUpAdmin = async (req, res, next) => {
   }
 };
 
-// ================== SIGN IN (USER / VENDOR / ADMIN) ==================
+/* ============================================================
+   SIGN IN
+============================================================ */
+
 export const signIn = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -167,12 +153,8 @@ export const signIn = async (req, res, next) => {
     const validUser = await User.findOne({ email });
     if (!validUser) return next(errorHandler(404, "User not found"));
 
-    const isPasswordCorrect = bcryptjs.compareSync(
-      password,
-      validUser.password
-    );
-    if (!isPasswordCorrect)
-      return next(errorHandler(401, "Wrong credentials"));
+    const isCorrect = bcryptjs.compareSync(password, validUser.password);
+    if (!isCorrect) return next(errorHandler(401, "Wrong credentials"));
 
     const accessToken = makeAccessToken(validUser);
     const refreshToken = makeRefreshToken(validUser);
@@ -182,12 +164,10 @@ export const signIn = async (req, res, next) => {
 
     const { password: _, refreshToken: __, ...rest } = updatedUser._doc;
 
-    // set cookie so verifyToken / verifyUser / verifyVendor can use it
     res.cookie("access_token", accessToken, accessCookieOptions);
 
     res.status(200).json({
       success: true,
-      succes: true,
       message: "Login successful",
       accessToken,
       refreshToken,
@@ -202,7 +182,10 @@ export const signIn = async (req, res, next) => {
   }
 };
 
-// ================== REFRESH TOKEN ==================
+/* ============================================================
+   REFRESH TOKEN
+============================================================ */
+
 export const refreshToken = async (req, res, next) => {
   try {
     if (!req.headers.authorization)
@@ -226,12 +209,10 @@ export const refreshToken = async (req, res, next) => {
     user.refreshToken = newRefresh;
     await user.save();
 
-    // update cookie with new access token
     res.cookie("access_token", newAccess, accessCookieOptions);
 
     res.status(200).json({
       success: true,
-      succes: true,
       accessToken: newAccess,
       refreshToken: newRefresh,
       role: user.role,
@@ -244,7 +225,10 @@ export const refreshToken = async (req, res, next) => {
   }
 };
 
-// ================== GOOGLE AUTH ==================
+/* ============================================================
+   GOOGLE AUTH
+============================================================ */
+
 export const google = async (req, res, next) => {
   try {
     const { email, name, photo } = req.body;
@@ -281,14 +265,11 @@ export const google = async (req, res, next) => {
 
     const userObj = user.toObject();
     delete userObj.password;
-    userObj.role = user.role;
 
-    // Cookie for subsequent authenticated API calls
     res.cookie("access_token", accessToken, accessCookieOptions);
 
     res.status(200).json({
       success: true,
-      succes: true,
       message: "Google login successful",
       accessToken,
       refreshToken,
@@ -299,7 +280,10 @@ export const google = async (req, res, next) => {
   }
 };
 
-// ================== FORGOT PASSWORD ==================
+/* ============================================================
+   FORGOT PASSWORD (FIXED – no 504)
+============================================================ */
+
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -312,6 +296,7 @@ export const forgotPassword = async (req, res, next) => {
     const normalized = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalized });
 
+    // Always respond same
     if (!user) {
       return res.status(200).json({
         success: true,
@@ -319,6 +304,7 @@ export const forgotPassword = async (req, res, next) => {
       });
     }
 
+    // Token
     const resetToken = crypto.randomBytes(32).toString("hex");
     const hashed = crypto.createHash("sha256").update(resetToken).digest("hex");
 
@@ -331,6 +317,7 @@ export const forgotPassword = async (req, res, next) => {
     user.resetPasswordExpires = Date.now() + expireMinutes * 60 * 1000;
     await user.save();
 
+    // Build frontend URL
     const frontend =
       process.env.FRONTEND_URL ||
       process.env.FRONTEND_BASE_URL ||
@@ -340,40 +327,53 @@ export const forgotPassword = async (req, res, next) => {
       user.email
     )}`;
 
-    const sent = await sendResetEmail(user.email, resetUrl, {
-      isVendor: !!user.isVendor,
-    });
-
-    if (!sent) {
-      console.log("Password reset link:", resetUrl);
-      return res.status(200).json({
-        success: true,
-        message:
-          "Reset link generated but SMTP not configured. Check backend logs.",
-      });
-    }
-
-    return res.status(200).json({
+    // Instant response → no timeouts / no 504
+    res.status(200).json({
       success: true,
       message: "If this email exists, a reset link will be sent",
     });
+
+    // Send email in background
+    sendResetEmail(user.email, resetUrl, { isVendor: !!user.isVendor })
+      .then((sent) => {
+        if (!sent) {
+          console.warn(
+            "⚠️ Email could NOT be sent. Fallback link:",
+            resetUrl
+          );
+        } else {
+          console.log("📧 Reset email sent to:", user.email);
+        }
+      })
+      .catch((err) => {
+        console.error("❌ sendResetEmail error:", err);
+        console.log("Reset URL:", resetUrl);
+      });
   } catch (err) {
-    next(err);
+    console.error("forgotPassword error:", err);
+    if (!res.headersSent) next(err);
   }
 };
 
-// ================== RESET PASSWORD ==================
+/* ============================================================
+   RESET PASSWORD
+============================================================ */
+
 export const resetPassword = async (req, res, next) => {
   try {
     const { token, email, id, password } = req.body;
 
     if (!token || !password || (!email && !id)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "invalid request" });
+      return res.status(400).json({
+        success: false,
+        message: "invalid request",
+      });
     }
 
-    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
 
     const query = email
       ? {
@@ -395,6 +395,7 @@ export const resetPassword = async (req, res, next) => {
         .json({ success: false, message: "Invalid or expired token" });
     }
 
+    // Update password
     user.password = bcryptjs.hashSync(password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
@@ -420,9 +421,10 @@ export const resetPassword = async (req, res, next) => {
   }
 };
 
-// ================== FIREBASE AUTH (DISABLED PLACEHOLDER) ==================
+/* ============================================================
+   FIREBASE AUTH (DISABLED)
+============================================================ */
+
 export const firebaseAuth = async (req, res, next) => {
-  // Route kept so your frontend doesn't break,
-  // but Firebase Admin + JSON are removed for Render.
   return next(errorHandler(503, "Firebase authentication is disabled"));
 };
