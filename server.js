@@ -1,9 +1,7 @@
-// server.js
 import dotenv from "dotenv";
 dotenv.config();
 
 import "./utils/cloudinaryConfig.js";
-
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -59,17 +57,17 @@ console.log(" → BACKEND  /public:", path.join(__dirname, "public"));
 app.use(helmet());
 
 /* ============================================================
-   CORS CONFIG
+   CORS CONFIGURATION
 ============================================================ */
 const allowedOrigins = [
-  "https://rent-a-ride-teju.netlify.app",
-  "http://localhost:5173",
+  "https://rent-a-ride-teju.netlify.app", // Production Frontend
+  "http://localhost:5173", // Local Development
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      console.log("[CORS] Incoming origin:", origin || "(none)");
+      console.log("[CORS] Incoming request origin:", origin || "(none)");
 
       if (!origin) return callback(null, true); // Allow Postman, mobile apps, server-to-server
 
@@ -81,7 +79,7 @@ app.use(
       return callback(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "PUT", "POST", "PATCH", "DELETE"],
-    credentials: true,
+    credentials: true, // Important for sending cookies and session data
   })
 );
 
