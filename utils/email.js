@@ -43,7 +43,7 @@ export async function sendResetEmail(to, resetUrl, opts = {}) {
     `;
 
     const response = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "Rent-a-Ride <noreply@rent-a-ride.com>",
+      from: process.env.EMAIL_FROM || "Rent-a-Ride <onboarding@resend.dev>",
       to,
       subject,
       html,
@@ -55,4 +55,18 @@ export async function sendResetEmail(to, resetUrl, opts = {}) {
     console.error("❌ Resend email error:", err);
     return false;
   }
+}
+
+/**
+ * Stubbed verify function to keep server.js happy.
+ * With Resend (HTTP API), there is no SMTP connection to verify,
+ * but we can log once at startup.
+ */
+export async function verifyTransporter() {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️ RESEND_API_KEY is not set. Emails will NOT be sent.");
+    return false;
+  }
+  console.log("📬 Resend ready – API key configured.");
+  return true;
 }
