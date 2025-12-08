@@ -1,8 +1,7 @@
-// backend/middleware/verifyToken.js
 import jwt from "jsonwebtoken";
 import { errorHandler } from "../utils/error.js";
 
-export const verifyToken = (req, res, next) => {
+export const verifyToken = async (req, res, next) => {
   try {
     // 1. Get token from cookie first, then Authorization header
     const authHeader = req.headers.authorization || req.headers.Authorization;
@@ -12,7 +11,7 @@ export const verifyToken = (req, res, next) => {
 
     const cookieToken = req.cookies?.access_token || req.cookies?.accessToken;
 
-    // NOTE: prefer cookie token so refreshed tokens win
+    // Prefer cookie token so refreshed tokens win
     const token = cookieToken || headerToken;
 
     if (!token) {
@@ -26,20 +25,9 @@ export const verifyToken = (req, res, next) => {
       return next(errorHandler(500, "Server config error"));
     }
 
-    // 3. Verify token, handling expiry specially
-    jwt.verify(token, secret, (err, decoded) => {
-      if (err) {
-        if (err.name === "TokenExpiredError") {
-          console.warn(
-            "verifyToken: token expired for token:",
-            token?.slice?.(0, 20) ?? "<token>"
-          );
-          return next(errorHandler(401, "TokenExpired"));
-        }
-
-        console.warn("verifyToken: token invalid:", err.message);
-        return next(errorHandler(403, "Token is not valid"));
-      }
+    // 3. Verify token, handle expiry specially
+    try {
+      const decoded = await jwt.verify(token, secret); // Using async/await here for cleaner code
 
       // 4. Attach user info to request
       req.user = {
@@ -49,7 +37,16 @@ export const verifyToken = (req, res, next) => {
       };
 
       return next();
-    });
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        console.warn("verifyToken: token expired:", token?.slice(0, 20) ?? "<token>");
+        return next(errorHandler(401, "TokenExpired"));
+      }
+
+      console.warn("verifyToken: invalid token:", err.message);
+      return next(errorHandler(403, "Token is not valid"));
+    }
+
   } catch (err) {
     console.error("verifyToken unexpected error:", err);
     return next(errorHandler(500, "Internal server error in verifyToken"));
